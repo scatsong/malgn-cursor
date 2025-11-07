@@ -68,24 +68,16 @@ context.scale(BLOCK_SIZE, BLOCK_SIZE);
 const nextCanvas = document.querySelector("#nextPiece");
 const nextContext = nextCanvas.getContext("2d");
 
-const opponentCanvas = document.querySelector("#opponentPlayfield");
-const opponentContext = opponentCanvas.getContext("2d");
-
 const scoreEl = document.querySelector("#score");
 const linesEl = document.querySelector("#lines");
 const levelEl = document.querySelector("#level");
 const statusEl = document.querySelector("#statusMessage");
-const multiplayerStatusEl = document.querySelector("#multiplayerStatus");
-const opponentStatusEl = document.querySelector("#opponentStatus");
+// single-player only
 
 const startBtn = document.querySelector("#startBtn");
 const pauseBtn = document.querySelector("#pauseBtn");
 const resetBtn = document.querySelector("#resetBtn");
-const createRoomBtn = document.querySelector("#createRoomBtn");
-const joinRoomBtn = document.querySelector("#joinRoomBtn");
-const roomInput = document.querySelector("#roomInput");
-
-const multiplayerClient = new MultiplayerClient("ws://localhost:3000");
+// no multiplayer controls
 
 const game = new (class Game {
   constructor() {
@@ -145,7 +137,6 @@ const game = new (class Game {
     updateScoreboard(this);
     draw();
     statusEl.textContent = "대기 중";
-    multiplayerClient.sendState(this.serializeState());
   }
 
   start() {
@@ -187,7 +178,7 @@ const game = new (class Game {
     }
     this.lockPiece();
     this.spawnNextPiece();
-    multiplayerClient.sendState(this.serializeState());
+    // no-op
   }
 
   drop() {
@@ -198,7 +189,6 @@ const game = new (class Game {
       this.lockPiece();
       this.spawnNextPiece();
     }
-    multiplayerClient.sendState(this.serializeState());
   }
 
   move(dir) {
@@ -207,7 +197,6 @@ const game = new (class Game {
     if (!this.collides(offset, 0, this.activePiece.matrix)) {
       this.activePiece.pos.x += offset;
       draw();
-      multiplayerClient.sendState(this.serializeState());
     }
   }
 
@@ -226,7 +215,6 @@ const game = new (class Game {
     }
     this.activePiece.matrix = rotated;
     draw();
-    multiplayerClient.sendState(this.serializeState());
   }
 
   collides(offsetX, offsetY, matrix) {
@@ -314,22 +302,7 @@ const game = new (class Game {
     statusEl.textContent = "게임 오버";
   }
 
-  serializeState() {
-    return {
-      grid: this.grid,
-      active: this.activePiece,
-      next: this.nextPiece,
-      score: this.score,
-      lines: this.lines,
-      level: this.level,
-      status: this.running ? (this.paused ? "paused" : "running") : "idle"
-    };
-  }
-
-  applyOpponentState(state) {
-    if (!state) return;
-    renderOpponent(state);
-  }
+  // no multiplayer state
 })();
 
 function rotateMatrix(matrix) {
@@ -344,7 +317,7 @@ function drawGrid(grid, ctx, scale = BLOCK_SIZE) {
   ctx.save();
   ctx.scale(scale / BLOCK_SIZE, scale / BLOCK_SIZE);
   ctx.clearRect(0, 0, width * BLOCK_SIZE, height * BLOCK_SIZE);
-  ctx.fillStyle = "rgba(15, 23, 42, 0.8)";
+  ctx.fillStyle = "#f3f4f6";
   ctx.fillRect(0, 0, width * BLOCK_SIZE, height * BLOCK_SIZE);
   grid.forEach((row, y) => {
     row.forEach((value, x) => {
@@ -416,43 +389,18 @@ function drawNextPiece() {
   const block = 24;
   const offsetX = (nextCanvas.width / block - matrix[0].length) / 2;
   const offsetY = (nextCanvas.height / block - matrix.length) / 2;
-  nextContext.fillStyle = "rgba(15, 23, 42, 0.6)";
+  nextContext.fillStyle = "#f3f4f6";
   nextContext.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
   matrix.forEach((row, y) => {
     row.forEach((value, x) => {
       if (!value) return;
       nextContext.fillStyle = COLORS[type];
       nextContext.fillRect((x + offsetX) * block, (y + offsetY) * block, block, block);
-      nextContext.strokeStyle = "rgba(30, 41, 59, 0.8)";
+      nextContext.strokeStyle = "#e5e7eb";
       nextContext.strokeRect((x + offsetX) * block, (y + offsetY) * block, block, block);
     });
   });
   nextContext.restore();
-}
-
-function renderOpponent(state) {
-  if (!state || !state.grid) {
-    opponentStatusEl.textContent = "상대 없음";
-    opponentContext.clearRect(0, 0, opponentCanvas.width, opponentCanvas.height);
-    return;
-  }
-  opponentStatusEl.textContent = "상대 플레이 중";
-  const scale = 18;
-  opponentContext.save();
-  opponentContext.clearRect(0, 0, opponentCanvas.width, opponentCanvas.height);
-  opponentContext.scale(scale / BLOCK_SIZE, scale / BLOCK_SIZE);
-  opponentContext.fillStyle = "rgba(15, 23, 42, 0.6)";
-  opponentContext.fillRect(0, 0, COLS * BLOCK_SIZE, ROWS * BLOCK_SIZE);
-  state.grid.forEach((row, y) => {
-    row.forEach((value, x) => {
-      if (!value) return;
-      drawBlock(opponentContext, x, y, COLORS[value]);
-    });
-  });
-  if (state.active) {
-    drawActivePiece(opponentContext, state.active);
-  }
-  opponentContext.restore();
 }
 
 function updateScoreboard({ score, lines, level }) {
@@ -492,7 +440,6 @@ document.addEventListener("keydown", (event) => {
 startBtn.addEventListener("click", () => {
   if (!game.running) game.reset();
   game.start();
-  multiplayerClient.sendState(game.serializeState());
 });
 
 pauseBtn.addEventListener("click", () => {
@@ -503,156 +450,7 @@ resetBtn.addEventListener("click", () => {
   game.reset();
 });
 
-createRoomBtn.addEventListener("click", () => {
-  const roomId = roomInput.value.trim() || generateRoomCode();
-  multiplayerClient.createRoom(roomId);
-});
-
-joinRoomBtn.addEventListener("click", () => {
-  const roomId = roomInput.value.trim();
-  if (!roomId) {
-    multiplayerStatusEl.textContent = "방 코드를 입력하세요.";
-    return;
-  }
-  multiplayerClient.joinRoom(roomId);
-});
-
-multiplayerClient.on("status", (message) => {
-  multiplayerStatusEl.textContent = message;
-});
-
-multiplayerClient.on("opponent", (state) => {
-  game.applyOpponentState(state);
-});
-
-multiplayerClient.on("room", (roomId) => {
-  roomInput.value = roomId;
-  multiplayerStatusEl.textContent = `방 (${roomId})에 연결됨`;
-});
-
-multiplayerClient.on("disconnect", () => {
-  opponentStatusEl.textContent = "상대 없음";
-  multiplayerStatusEl.textContent = "방에 연결되지 않았습니다.";
-});
-
-function generateRoomCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
-}
-
 draw();
-
-class MultiplayerClient {
-  constructor(url) {
-    this.url = url;
-    this.socket = null;
-    this.roomId = null;
-    this.handlers = new Map();
-  }
-
-  on(event, handler) {
-    const list = this.handlers.get(event) || [];
-    list.push(handler);
-    this.handlers.set(event, list);
-  }
-
-  emit(event, payload) {
-    const list = this.handlers.get(event) || [];
-    list.forEach((handler) => handler(payload));
-  }
-
-  ensureConnection() {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      return Promise.resolve();
-    }
-    if (this.socket && this.socket.readyState === WebSocket.CONNECTING) {
-      return new Promise((resolve, reject) => {
-        const onOpen = () => {
-          cleanup();
-          resolve();
-        };
-        const onError = (error) => {
-          cleanup();
-          reject(error);
-        };
-        const cleanup = () => {
-          this.socket.removeEventListener("open", onOpen);
-          this.socket.removeEventListener("error", onError);
-        };
-        this.socket.addEventListener("open", onOpen);
-        this.socket.addEventListener("error", onError);
-      });
-    }
-    this.socket = new WebSocket(this.url);
-    this.socket.addEventListener("open", () => {
-      this.emit("status", "서버에 연결됨");
-    });
-    this.socket.addEventListener("message", (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "room") {
-          this.roomId = data.roomId;
-          this.emit("room", data.roomId);
-        } else if (data.type === "status") {
-          this.emit("status", data.message);
-        } else if (data.type === "opponent") {
-          this.emit("opponent", data.state);
-        }
-      } catch (error) {
-        console.error("Invalid message", error);
-      }
-    });
-    this.socket.addEventListener("close", () => {
-      this.emit("disconnect");
-    });
-    this.socket.addEventListener("error", () => {
-      this.emit("status", "서버 연결 실패");
-    });
-    return new Promise((resolve, reject) => {
-      const onOpen = () => {
-        cleanup();
-        resolve();
-      };
-      const onError = (error) => {
-        cleanup();
-        reject(error);
-      };
-      const cleanup = () => {
-        this.socket.removeEventListener("open", onOpen);
-        this.socket.removeEventListener("error", onError);
-      };
-      this.socket.addEventListener("open", onOpen);
-      this.socket.addEventListener("error", onError);
-    });
-  }
-
-  async createRoom(roomId) {
-    try {
-      await this.ensureConnection();
-      this.socket.send(JSON.stringify({ type: "create", roomId }));
-      this.emit("status", `방 (${roomId}) 생성 요청`);
-    } catch (error) {
-      this.emit("status", "방 생성 실패");
-    }
-  }
-
-  async joinRoom(roomId) {
-    try {
-      await this.ensureConnection();
-      this.socket.send(JSON.stringify({ type: "join", roomId }));
-      this.emit("status", `방 (${roomId}) 참가 요청`);
-    } catch (error) {
-      this.emit("status", "방 참가 실패");
-    }
-  }
-
-  sendState(state) {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN || !this.roomId) {
-      return;
-    }
-    this.socket.send(JSON.stringify({ type: "state", roomId: this.roomId, state }));
-  }
-}
-
-// expose game for debugging
+// expose for debugging
 window.__tetris = { game };
 

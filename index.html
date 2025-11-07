@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>온라인 테트리스</title>
+    <title>테트리스</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div class="app">
       <header class="app__header">
-        <h1>온라인 테트리스</h1>
+        <h1>테트리스</h1>
         <div class="app__controls">
           <button id="startBtn">게임 시작</button>
           <button id="pauseBtn">일시정지</button>
@@ -36,25 +36,6 @@
             <canvas id="nextPiece" width="120" height="120" aria-label="다음 테트리스 블록"></canvas>
           </section>
 
-          <section class="multiplayer">
-            <h2>멀티플레이</h2>
-            <div class="multiplayer__status">
-              <label for="roomInput">방 코드</label>
-              <input id="roomInput" type="text" maxlength="8" placeholder="예: ROOM123" />
-              <div class="multiplayer__buttons">
-                <button id="createRoomBtn">방 만들기</button>
-                <button id="joinRoomBtn">방 참가</button>
-              </div>
-              <p id="multiplayerStatus">방에 연결되지 않았습니다.</p>
-            </div>
-
-            <section class="opponent" aria-live="polite">
-              <h3>상대 현황</h3>
-              <p id="opponentStatus">상대 없음</p>
-              <canvas id="opponentPlayfield" width="180" height="360" aria-label="상대 테트리스 필드"></canvas>
-            </section>
-          </section>
-
           <section class="how-to">
             <h2>조작 방법</h2>
             <ul>
@@ -69,11 +50,10 @@
       </main>
 
       <footer class="app__footer">
-        <small>WebSocket 서버를 실행 중인지 확인하세요. (server.js)</small>
+        <small>간단한 싱글플레이 테트리스</small>
       </footer>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/colyseus.js@0.15.15/build/colyseus.js"></script>
-    <script type="module" src="main.js"></script>
+    <script src="main.js"></script>
   </body>
 </html>
