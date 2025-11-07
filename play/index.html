@@ -1,0 +1,898 @@
+<!doctype html>
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<title>HTML5 비디오 플레이어 샘플</title>
+		<style>
+			:root{ --bg:#0f1720; --card:#0b1220; --accent:#06b6d4; --muted:#94a3b8 }
+			html,body{height:100%;margin:0;background:linear-gradient(180deg,#071124 0%,#081827 100%);font-family:Inter,Segoe UI,Roboto,'Noto Sans KR',sans-serif;color:#e6eef6}
+			.container{max-width:980px;margin:48px auto;padding:20px}
+			.player{background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:12px;overflow:hidden}
+			.video-wrap{position:relative;background:#000}
+			video{width:100%;height:auto;display:block;background:#000}
+			.controls{display:flex;align-items:center;gap:10px;padding:12px;background:linear-gradient(180deg, rgba(10,14,20,0.6), rgba(6,10,16,0.6));backdrop-filter:blur(6px);box-shadow:0 6px 18px rgba(2,6,23,0.6);border-top:1px solid rgba(255,255,255,0.02)}
+			.btn{background:rgba(255,255,255,0.02);border:0;color:var(--accent);padding:8px 10px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+			.btn:hover{background:rgba(255,255,255,0.04)}
+			.btn:focus{outline:2px solid rgba(6,182,212,0.18);box-shadow:0 4px 12px rgba(6,182,212,0.06)}
+			/* play button prominence */
+					#playBtn{font-size:18px;padding:10px 12px;border-radius:10px;background:linear-gradient(180deg,var(--accent),#7c3aed);color:#ffffff;font-weight:700;box-shadow:0 6px 18px rgba(124,58,237,0.12)}
+					.play-glyph{font-size:16px;color:#061021}
+			#playBtn:hover{transform:translateY(-1px)}
+			/* select / input styling */
+					select{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#ffffff;padding:6px 10px;border-radius:8px;min-width:84px;appearance:none;-webkit-appearance:none}
+					select option{color:#061021;background:#fff}
+					/* custom select */
+					.custom-select{position:relative;display:inline-block;min-width:84px}
+					.custom-select__trigger{background:rgba(255,255,255,0.02);padding:6px 10px;border-radius:8px;color:var(--muted);cursor:pointer;border:1px solid rgba(255,255,255,0.04)}
+					.custom-select__trigger:focus{outline:2px solid rgba(6,182,212,0.12)}
+					.custom-select__options{position:absolute;left:0;top:calc(100% + 6px);background:#0b1220;border:1px solid rgba(255,255,255,0.04);border-radius:8px;list-style:none;padding:6px 0;margin:0;min-width:120px;box-shadow:0 8px 24px rgba(0,0,0,0.6);display:none;z-index:10010}
+					.custom-select__options.open{display:block;animation:fadeIn 160ms ease-out}
+					@keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+					.custom-select__options li:focus{outline:2px solid rgba(6,182,212,0.12);background:rgba(255,255,255,0.02)}
+					.custom-select__options li{padding:8px 12px;color:var(--muted);cursor:pointer}
+					.custom-select__options li[aria-selected="true"], .custom-select__options li:hover{background:rgba(255,255,255,0.03);color:#e6eef6}
+					.caret{margin-left:6px;color:var(--muted)}
+			select option{color:#061021;background:#fff}
+			input[type=range]{-webkit-appearance:none;appearance:none;background:transparent}
+			input[type=range]::-webkit-slider-runnable-track{height:6px;background:linear-gradient(90deg,var(--accent),#7c3aed);border-radius:6px}
+			input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);margin-top:-4px}
+			.time{font-size:13px;color:var(--muted);min-width:72px;text-align:center}
+			/* progress bar polishing */
+			.progress{flex:1;height:10px;background:rgba(255,255,255,0.04);border-radius:8px;overflow:hidden;cursor:pointer}
+			.progress > i{height:100%;width:0;background:linear-gradient(90deg,var(--accent),#7c3aed);display:block}
+			.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+			.progress{flex:1;height:8px;background:rgba(255,255,255,0.06);border-radius:6px;overflow:hidden;cursor:pointer}
+			.progress > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#7c3aed)}
+			.right{display:flex;align-items:center;gap:8px}
+			.time{font-size:13px;color:var(--muted);min-width:72px;text-align:center}
+			.caption-toggle{font-size:13px;color:var(--muted);cursor:pointer}
+			@media (max-width:520px){.controls{flex-wrap:wrap}.time{min-width:56px}}
+			/* Responsive adjustments for controls */
+					@media (max-width:720px){
+						.controls{flex-wrap:wrap;align-items:center;gap:8px;padding:8px}
+						#playBtn{padding:8px}
+						select, .time{font-size:13px}
+						.settings-btn{display:inline-flex}
+					}
+					@media (max-width:420px){
+						.controls{padding:6px;gap:6px}
+						/* hide less critical labels */
+						#previewDurLabel, #previewInfo{display:none}
+						.time{display:none}
+						/* make selects compact */
+						select{padding:4px 8px;min-width:64px}
+					}
+					/* Ensure controls sit above video/poster overlays */
+					.video-wrap{position:relative;z-index:0}
+					video{position:relative;z-index:0}
+					.controls{position:relative;z-index:10020}
+					.controls .btn, .custom-select{z-index:10021}
+			/* 자막 오버레이 스타일 */
+			.sub-overlay{position:absolute;left:0;right:0;bottom:6%;display:flex;justify-content:center;pointer-events:none;padding:0 6%;}
+		:root{ --sub-in-duration:220ms; --sub-out-duration:240ms; --sub-easing: cubic-bezier(.2,.9,.2,1);
+			 --sub-font-size:20px; --sub-color:#ffffff; --sub-bg-opacity:0.6; --sub-font-family:system-ui,Segoe UI,Roboto,'Noto Sans KR',sans-serif; --sub-bottom-offset:6%; }
+		.sub-overlay{position:absolute;left:0;right:0;bottom:var(--sub-bottom-offset,6%);display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;padding:0 6%;}
+			.sub-overlay .cue{background:rgba(0,0,0,var(--sub-bg-opacity,0.6));color:var(--sub-color,#fff);padding:8px 12px;border-radius:6px;font-size:var(--sub-font-size,20px);line-height:1.3;max-width:90%;text-align:center;box-shadow:0 6px 18px rgba(0,0,0,0.6);text-shadow:0 2px 4px rgba(0,0,0,0.6);opacity:0;transform:translateY(8px);font-family:var(--sub-font-family);}
+			/* 애니메이션 */
+			@keyframes subIn { from { opacity:0; transform:translateY(8px) scale(0.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+			@keyframes subOut { from { opacity:1; transform:translateY(0) scale(1); } to { opacity:0; transform:translateY(6px) scale(0.98); } }
+			.sub-overlay .cue.in{ animation: subIn var(--sub-in-duration) var(--sub-easing) forwards; }
+			.sub-overlay .cue.out{ animation: subOut var(--sub-out-duration) ease forwards; }
+			/* settings panel */
+			.settings-btn{background:transparent;border:0;color:var(--muted);padding:6px;border-radius:6px;cursor:pointer}
+			.settings-panel{position:absolute;right:12px;bottom:68px;background:rgba(2,6,23,0.95);padding:12px;border-radius:8px;color:var(--muted);font-size:13px;border:1px solid rgba(255,255,255,0.03);z-index:60;box-shadow:0 10px 30px rgba(0,0,0,0.6)}
+			.settings-panel label{display:block;margin-bottom:6px}
+			.settings-panel input[type=range]{width:160px}
+			@media (max-width:520px){ .sub-overlay .cue{font-size:16px;padding:6px 10px} }
+			/* ensure controls and their children accept pointer events */
+			.controls, .controls * { pointer-events: auto }
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<h1>HTML5 비디오 플레이어 샘플</h1>
+			<p>기본 플레이어 기능: 재생, 일시정지, 탐색바, 음량, 전체화면, 자막, 품질 선택(샘플)</p>
+
+			<div class="player" id="player">
+				<div class="video-wrap">
+					<div class="sub-overlay" id="subOverlay" aria-hidden="false"></div>
+								<video id="video" preload="metadata" poster="https://picsum.photos/1280/720?blur=3">
+									<!-- 여러 품질 소스(샘플) -->
+									<source src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" type="video/mp4" data-quality="720p">
+									<source src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" type="video/mp4" data-quality="480p">
+									<!-- 자막 예시: subs_ko.vtt 로컬 파일 -->
+									<track id="track-ko" label="한국어" kind="subtitles" srclang="ko" src="subs_ko.vtt" default>
+								</video>
+								<p id="noSubNotice" style="position:absolute;left:12px;bottom:12px;color:#fff;font-size:13px;display:none">자막 파일이 없습니다.</p>
+							
+				</div>
+
+						<div class="controls" role="toolbar" aria-label="비디오 재생 컨트롤">
+							<button class="btn" id="playBtn" title="재생/일시정지" aria-label="재생" aria-pressed="false" aria-describedby="playDesc">
+								<!-- SVG icons: play and pause (we toggle visibility) -->
+								<svg id="playIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+									<path d="M5 3v18l15-9L5 3z" fill="#061021" />
+								</svg>
+								<svg id="pauseIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:none">
+									<path d="M6 4h4v16H6zM14 4h4v16h-4z" fill="#061021" />
+								</svg>
+							</button>
+
+							<div id="playDesc" class="sr-only">버튼: 재생 또는 일시정지. 스페이스키로도 토글할 수 있습니다.</div>
+
+							<div class="progress" id="progress" title="탐색바" role="slider" tabindex="0"
+									 aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0초" aria-label="재생 위치">
+								<i id="progressBar"></i>
+							</div>
+
+								<div class="time" id="time" aria-live="polite">00:00 / 00:00</div>
+								<div id="progressDesc" class="sr-only">재생 위치 슬라이더입니다. 화살표 키로 이동하거나 클릭으로 탐색하세요.</div>
+
+							<div class="right">
+								<label for="volume" class="sr-only">볼륨</label>
+                                <input id="volume" type="range" min="0" max="1" step="0.05" value="1" title="볼륨" aria-describedby="volumeDesc">
+
+							<button class="btn" id="muteBtn" title="음소거" aria-label="음소거" aria-pressed="false" aria-describedby="muteDesc">🔊</button>
+
+							<div id="volumeDesc" class="sr-only">볼륨 조절 슬라이더입니다. 위/아래 화살표로 조절 가능합니다.</div>
+							<div id="muteDesc" class="sr-only">음소거 토글 버튼입니다. 현재 음소거 상태는 aria-pressed로 표시됩니다.</div>
+
+											<label for="quality" class="sr-only">화질</label>
+											<!-- Custom quality dropdown to ensure consistent styling -->
+											<div class="custom-select" id="qualitySelect" tabindex="0" role="listbox" aria-label="화질 선택" aria-expanded="false" aria-describedby="qualityDesc">
+												<div class="custom-select__trigger" id="qualityTrigger">Auto <span class="caret">▾</span></div>
+												<ul class="custom-select__options" id="qualityOptions" role="listbox" tabindex="-1">
+													<li id="qualityOpt-auto" role="option" data-value="auto" aria-selected="true" tabindex="-1">Auto</li>
+													<li id="qualityOpt-720p" role="option" data-value="720p" aria-selected="false" tabindex="-1">720p</li>
+													<li id="qualityOpt-480p" role="option" data-value="480p" aria-selected="false" tabindex="-1">480p</li>
+												</ul>
+											</div>
+											<div id="qualityDesc" class="sr-only">동영상 화질 선택. Auto는 브라우저 기본 또는 현재 소스를 사용합니다.</div>
+
+											<label for="subs" class="sr-only">자막 선택</label>
+											<select id="subs" title="자막 선택" aria-label="자막 선택" aria-describedby="subsDesc">
+												<option value="off">자막 끔</option>
+												<option value="ko">한국어</option>
+												<option value="en">English</option>
+											</select>
+									<div id="subsDesc" class="sr-only">자막 언어 선택. 트랙이 없으면 자동으로 추가됩니다.</div>
+
+														<button class="btn" id="ccBtn" title="자막 전환" aria-label="자막 전환" aria-pressed="false" aria-describedby="ccDesc">CC</button>
+														<button class="btn" id="hlsBtn" title="HLS 켜기/끄기" aria-label="HLS" aria-pressed="false" aria-describedby="hlsDesc">HLS</button>
+														<button class="btn" id="fsBtn" title="전체화면" aria-label="전체화면" aria-describedby="fsDesc">⤢</button>
+														<button class="settings-btn" id="settingsBtn" title="자막 설정" aria-label="자막 설정" aria-describedby="settingsDesc">⚙</button>
+														<div id="fsDesc" class="sr-only">전체화면 모드로 전환합니다.</div>
+														<div id="settingsDesc" class="sr-only">자막 및 프리셋 설정을 엽니다.</div>
+																	<div id="settingsPanel" class="settings-panel" style="display:none" aria-hidden="true">
+																		<label>프리셋 이름
+																			<input id="presetName" type="text" placeholder="preset 이름">
+																			<button id="savePresetBtn" class="btn" type="button">저장</button>
+																		</label>
+																		<label>프리셋 불러오기
+																			<select id="presetSelect"><option value="">(없음)</option></select>
+																			<button id="loadPresetBtn" class="btn" type="button">불러오기</button>
+																			<button id="deletePresetBtn" class="btn" type="button">삭제</button>
+																			<button id="exportPresetBtn" class="btn" type="button">내보내기</button>
+																			<button id="importPresetBtn" class="btn" type="button">가져오기</button>
+																			<input id="importFile" type="file" accept="application/json" style="display:none">
+																		</label>
+																		<div id="ccDesc" class="sr-only">자막을 켜고 끕니다. 트랙이 없으면 안내됩니다.</div>
+																		<div id="hlsDesc" class="sr-only">HLS 스트리밍 플레이백을 토글합니다. 브라우저 호환성에 따라 동작합니다.</div>
+																		<label style="margin-top:6px;display:block">
+																			<button id="exportAllBtn" class="btn" type="button">모두 내보내기</button>
+																			<button id="importAllBtn" class="btn" type="button">모두 가져오기(병합)</button>
+																			<button id="replaceAllBtn" class="btn" type="button">모두 가져오기(대체)</button>
+																			<button id="resetBtn" class="btn" type="button">초기화(기본값)</button>
+																		</label>
+																		<label style="margin-top:6px;display:block">
+																			<input id="autoRollbackChk" type="checkbox"> 미리보기 자동 롤백(5초)
+																			<span id="rollbackTimer" style="margin-left:8px;color:var(--muted)"></span>
+																		</label>
+																		<label style="margin-top:6px;display:block">
+																			미리보기 지속시간: <span id="previewDurLabel">10s</span>
+																			<input id="previewDuration" type="range" min="1" max="60" step="1" value="10" style="vertical-align:middle;margin-left:8px" title="프리셋 미리보기 유지 시간(초)">
+																			<button id="previewInfoBtn" class="btn" type="button" aria-expanded="false" aria-controls="previewInfo" title="미리보기 설명">ℹ</button>
+																			<div id="previewInfo" role="note" style="display:none;color:var(--muted);font-size:12px;margin-top:6px;">프리셋 드롭다운에서 선택하면 이 시간 동안 스타일이 임시 적용됩니다. 자동 롤백을 원하면 "미리보기 자동 롤백"을 켜세요.</div>
+																		</label>
+																		<hr style="margin:8px 0;border:none;border-top:1px solid rgba(255,255,255,0.03)">
+																		<label>애니메이션 속도(전체 스케일): <span id="speedLabel">100%</span></label>
+																		<input id="speedRange" type="range" min="30" max="200" step="10" value="100">
+																		<label>인 지속시간: <span id="inLabel">220ms</span></label>
+																		<input id="inRange" type="range" min="80" max="1000" step="10" value="220">
+																		<label>아웃 지속시간: <span id="outLabel">240ms</span></label>
+																		<input id="outRange" type="range" min="80" max="1000" step="10" value="240">
+																		<label>이징
+																			<select id="easingSelect">
+																				<option value="cubic-bezier(.2,.9,.2,1)">부드럽게</option>
+																				<option value="ease">ease</option>
+																				<option value="ease-in">ease-in</option>
+																				<option value="ease-out">ease-out</option>
+																				<option value="linear">linear</option>
+																			</select>
+																		</label>
+																		<label>폰트 가족
+																			<select id="fontFamilySelect">
+																				<option value="system-ui,Segoe UI,Roboto,'Noto Sans KR',sans-serif">시스템 기본</option>
+																				<option value="Arial,Helvetica,sans-serif">Arial</option>
+																				<option value="'Noto Sans KR',sans-serif">Noto Sans KR</option>
+																				<option value="'Courier New',monospace">Monospace</option>
+																			</select>
+																		</label>
+																		<label>글자 크기: <span id="fontSizeLabel">20px</span></label>
+																		<input id="fontSizeRange" type="range" min="12" max="36" step="1" value="20">
+																		<label>글자 색상: <input id="fontColor" type="color" value="#ffffff"></label>
+																		<label>배경 투명도: <span id="bgLabel">60%</span></label>
+																		<input id="bgRange" type="range" min="0" max="100" step="5" value="60">
+																		<label>하단 여백: <span id="bottomLabel">6%</span></label>
+																		<input id="bottomRange" type="range" min="0" max="20" step="1" value="6">
+																		<label>자막 위치
+																			<select id="positionSelect">
+																				<option value="center">가운데</option>
+																				<option value="left">왼쪽</option>
+																				<option value="right">오른쪽</option>
+																			</select>
+																		</label>
+																		<div style="margin-top:8px;border-top:1px dashed rgba(255,255,255,0.03);padding-top:8px">
+																			<strong>프리셋 미리보기</strong>
+																			<div id="presetPreview" style="margin-top:6px"></div>
+																		</div>
+																		<!-- Keyboard help panel -->
+																		<div id="kbdHelp" style="margin-top:8px;border-top:1px dashed rgba(255,255,255,0.03);padding-top:8px;display:none" role="region" aria-label="키보드 도움말">
+																			<strong>키보드 단축키</strong>
+																			<ul style="margin:6px 0 0 18px;color:var(--muted)">
+																				<li><kbd>Space</kbd> 재생/일시정지</li>
+																				<li><kbd>← / →</kbd> 5초 이동</li>
+																				<li><kbd>↑ / ↓</kbd> 볼륨 조절 (볼륨 슬라이더 포커스 시)</li>
+																				<li><kbd>F</kbd> 전체화면 토글</li>
+																				<li><kbd>?</kbd> 이 도움말 토글</li>
+																			</ul>
+																			<button id="closeKbdHelp" class="btn" type="button" style="margin-top:6px">닫기</button>
+																		</div>
+																	</div>
+							</div>
+						</div>
+			</div>
+			<hr />
+			<p>샘플 영상은 MDN의 공개 예제입니다. 로컬 영상이나 다른 URL을 테스트하려면 &lt;source&gt; 요소의 src를 바꿔주세요.</p>
+		</div>
+
+		<!-- hls.js (CDN) -->
+		<script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.0/dist/hls.min.js"></script>
+		<script>
+			// 간단한 플레이어 스크립트
+			const video = document.getElementById('video');
+			const playBtn = document.getElementById('playBtn');
+			const progress = document.getElementById('progress');
+			const progressBar = document.getElementById('progressBar');
+			const timeEl = document.getElementById('time');
+			const volume = document.getElementById('volume');
+			const muteBtn = document.getElementById('muteBtn');
+			const fsBtn = document.getElementById('fsBtn');
+			const ccBtn = document.getElementById('ccBtn');
+			const quality = document.getElementById('quality');
+			const hlsBtn = document.getElementById('hlsBtn');
+			const subs = document.getElementById('subs');
+			let hls; // hls.js 인스턴스
+			// 샘플 HLS 스트림 (CORS 허용되는 공개 스트림 사용)
+			const sampleHls = 'https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8';
+
+			function formatTime(s){
+				if (!isFinite(s)) return '00:00';
+				const m = Math.floor(s/60).toString().padStart(2,'0');
+				const sec = Math.floor(s%60).toString().padStart(2,'0');
+				return `${m}:${sec}`;
+			}
+
+			// 재생/일시정지 - SVG 아이콘 토글 및 aria 상태 업데이트
+			function syncPlayIcon(){
+				const playIcon = document.getElementById('playIcon');
+				const pauseIcon = document.getElementById('pauseIcon');
+				if(video.paused){ playIcon.style.display = 'block'; pauseIcon.style.display = 'none'; playBtn.setAttribute('aria-pressed','false'); playBtn.setAttribute('aria-label','재생'); }
+				else { playIcon.style.display = 'none'; pauseIcon.style.display = 'block'; playBtn.setAttribute('aria-pressed','true'); playBtn.setAttribute('aria-label','일시정지'); }
+			}
+			playBtn.addEventListener('click',()=>{ if(video.paused) video.play(); else video.pause(); syncPlayIcon(); });
+			// 비디오의 play/pause 이벤트에 따라 아이콘 동기화
+			video.addEventListener('play', syncPlayIcon);
+			video.addEventListener('pause', syncPlayIcon);
+
+			// 시간 업데이트
+			video.addEventListener('timeupdate',()=>{
+				const pct = (video.currentTime / video.duration) * 100 || 0;
+				progressBar.style.width = pct + '%';
+				timeEl.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
+			});
+
+					// 프로그레스 클릭으로 탐색 및 키보드 제어 (slider 역할)
+					function seekByClientX(x){
+						const rect = progress.getBoundingClientRect();
+						const pct = Math.max(0, Math.min(1, (x - rect.left) / rect.width));
+						video.currentTime = pct * video.duration;
+					}
+					progress.addEventListener('click',(e)=>{ seekByClientX(e.clientX); });
+					progress.addEventListener('keydown',(e)=>{
+						if(!isFinite(video.duration)) return;
+						const step = Math.max(1, Math.floor(video.duration / 20)); // 대략적 스텝
+						let handled = false;
+						if(e.key === 'ArrowLeft'){ video.currentTime = Math.max(0, video.currentTime - step); handled = true; }
+						if(e.key === 'ArrowRight'){ video.currentTime = Math.min(video.duration, video.currentTime + step); handled = true; }
+						if(e.key === 'Home'){ video.currentTime = 0; handled = true; }
+						if(e.key === 'End'){ video.currentTime = video.duration; handled = true; }
+						if(e.key === 'PageUp'){ video.currentTime = Math.min(video.duration, video.currentTime + 10); handled = true; }
+						if(e.key === 'PageDown'){ video.currentTime = Math.max(0, video.currentTime - 10); handled = true; }
+						if(handled){ e.preventDefault(); updateProgressAria(); }
+					});
+
+			// 볼륨
+			volume.addEventListener('input',()=>{ video.volume = parseFloat(volume.value); muteBtn.textContent = video.volume>0?'🔊':'🔈'; });
+			muteBtn.addEventListener('click',()=>{ video.muted = !video.muted; muteBtn.textContent = video.muted ? '🔈' : '🔊'; });
+
+			// 전체화면
+			fsBtn.addEventListener('click',()=>{
+				if(!document.fullscreenElement) video.closest('.player').requestFullscreen().catch(()=>{});
+				else document.exitFullscreen().catch(()=>{});
+			});
+
+			// 자막 토글 (트랙이 있을 때만)
+					ccBtn.addEventListener('click', ()=>{
+						const tr = video.querySelector('track');
+						if(!tr || !tr.src) { announce('자막 트랙이 없습니다. 트랙의 src를 지정하세요.'); return; }
+						const showing = tr.mode === 'showing';
+						tr.mode = showing ? 'hidden' : 'showing';
+						ccBtn.setAttribute('aria-pressed', String(!showing));
+						ccBtn.style.opacity = (!showing) ? '1' : '0.6';
+						announce(!showing ? '자막 켜짐' : '자막 꺼짐');
+					});
+
+					// --- Custom quality dropdown behavior ---
+					const qualitySelect = document.getElementById('qualitySelect');
+					const qualityTrigger = document.getElementById('qualityTrigger');
+					const qualityOptions = document.getElementById('qualityOptions');
+					let qFocusedIndex = 0;
+
+					// live region for announcements
+					let liveAnn = document.getElementById('liveAnn');
+					if(!liveAnn){ liveAnn = document.createElement('div'); liveAnn.id='liveAnn'; liveAnn.setAttribute('aria-live','polite'); liveAnn.className='sr-only'; document.body.appendChild(liveAnn); }
+
+					function openQuality(){ qualityOptions.classList.add('open'); qualitySelect.setAttribute('aria-expanded','true'); qFocusedIndex = 0; const first = qualityOptions.children[qFocusedIndex]; if(first){ first.focus(); qualitySelect.setAttribute('aria-activedescendant', first.id); } }
+					function closeQuality(){ qualityOptions.classList.remove('open'); qualitySelect.setAttribute('aria-expanded','false'); qualitySelect.removeAttribute('aria-activedescendant'); try{ qualitySelect.focus(); }catch(e){} }
+
+					qualityTrigger.addEventListener('click', ()=>{ const open = qualityOptions.classList.contains('open'); if(open) closeQuality(); else openQuality(); });
+
+					// option click
+					Array.from(qualityOptions.children).forEach((li, idx)=>{
+						li.tabIndex = -1;
+						li.addEventListener('click', ()=>{
+							selectQuality(li.dataset.value, li.textContent);
+							closeQuality();
+						});
+						li.addEventListener('keydown', (e)=>{
+							if(e.key === 'ArrowDown'){ e.preventDefault(); const next = (idx+1) % qualityOptions.children.length; qualityOptions.children[next].focus(); }
+							if(e.key === 'ArrowUp'){ e.preventDefault(); const prev = (idx-1+qualityOptions.children.length) % qualityOptions.children.length; qualityOptions.children[prev].focus(); }
+							if(e.key === 'Enter'){ selectQuality(li.dataset.value, li.textContent); closeQuality(); }
+							if(e.key === 'Escape'){ closeQuality(); }
+						});
+						li.addEventListener('focus', ()=>{ qualitySelect.setAttribute('aria-activedescendant', li.id); qFocusedIndex = idx; });
+					});
+
+					function selectQuality(value, label){
+						qualityTrigger.textContent = label + ' ';
+						const caret = document.createElement('span'); caret.className='caret'; caret.textContent = '▾'; qualityTrigger.appendChild(caret);
+						// update aria-selected on options
+						Array.from(qualityOptions.children).forEach(li=> li.setAttribute('aria-selected', String(li.dataset.value === value)));
+						// announce selection
+						liveAnn.textContent = label + ' 선택됨';
+						// sync with original handler logic
+						if(value === 'auto'){ announce('Auto는 기본 소스 사용'); return; }
+						const sources = Array.from(video.querySelectorAll('source'));
+						const sel = sources.find(s => s.dataset.quality === value);
+						if(sel){ const curTime = video.currentTime; const paused = video.paused; video.src = sel.src; video.load(); video.currentTime = curTime; if(!paused) video.play(); announce(value + ' 로 전환되었습니다'); }
+					}
+
+					// close dropdown on outside click
+					document.addEventListener('click', (e)=>{ if(!qualitySelect.contains(e.target)) closeQuality(); });
+
+							// 자막 선택(select) 처리: off/ko/en
+							subs.addEventListener('change', ()=>{
+								const v = subs.value;
+								// helper: ensure track exists
+								function ensureTrack(lang, src){
+									let t = video.querySelector(`track[srclang="${lang}"]`);
+									if(!t){ t = document.createElement('track'); t.kind='subtitles'; t.label = (lang==='ko')? '한국어' : 'English'; t.srclang = lang; t.src = src; video.appendChild(t); }
+									return t;
+								}
+								// turn off
+								if(v === 'off'){
+									Array.from(video.querySelectorAll('track')).forEach(t=> t.mode='hidden');
+									announce('자막 끔');
+									return;
+								}
+								if(v === 'ko'){
+									const t = ensureTrack('ko','subs_ko.vtt'); Array.from(video.querySelectorAll('track')).forEach(tr=>{ if(tr !== t) tr.mode='hidden'; }); t.mode='showing'; announce('한국어 자막 선택됨');
+									return;
+								}
+								if(v === 'en'){
+									const t = ensureTrack('en','subs_en.vtt'); Array.from(video.querySelectorAll('track')).forEach(tr=>{ if(tr !== t) tr.mode='hidden'; }); t.mode='showing'; announce('English subtitles selected');
+									return;
+								}
+							});
+
+					// 화질 선택(단순: 같은 파일로 교체하는 샘플 로직)
+					// 네이티브 select (#quality)가 존재할 때만 이벤트 바인딩
+					if(quality){
+						quality.addEventListener('change', ()=>{
+							const q = quality.value;
+							// 실제 스트리밍 전환이 필요하면 HLS/DASH 라이브러리를 사용하세요.
+							if(q === 'auto'){ alert('Auto는 기본 소스 사용'); return; }
+							// 샘플: 동일 src를 재설정 (데모 목적)
+							const sources = Array.from(video.querySelectorAll('source'));
+							const sel = sources.find(s => s.dataset.quality === q);
+							if(sel){ const curTime = video.currentTime; const paused = video.paused; video.src = sel.src; video.load(); video.currentTime = curTime; if(!paused) video.play(); announce(q + ' 로 전환되었습니다'); }
+							else announce('선택한 품질 소스가 없습니다.');
+						});
+					}
+
+							// HLS 토글: HLS 재생 시 hls.js 사용, 끄면 기본 <source>로 복원
+							hlsBtn.addEventListener('click', ()=>{
+								const enabled = hlsBtn.getAttribute('aria-pressed') === 'true';
+								if(enabled){
+									// HLS 끄기: 기존 소스가 있다면 복원
+									if(hls){ hls.destroy(); hls = null; }
+									video.removeAttribute('src');
+									// 재설정: 첫 번째 source 사용
+									const first = video.querySelector('source');
+									if(first){ video.src = first.src; video.load(); }
+									hlsBtn.setAttribute('aria-pressed','false');
+									announce('HLS 끔');
+								} else {
+									// HLS 켜기
+									if(Hls.isSupported()){
+										if(hls) hls.destroy();
+										hls = new Hls();
+										hls.loadSource(sampleHls);
+										hls.attachMedia(video);
+										hls.on(Hls.Events.MANIFEST_PARSED, function(){ video.play(); });
+										hlsBtn.setAttribute('aria-pressed','true');
+										announce('HLS 켬');
+									} else if(video.canPlayType('application/vnd.apple.mpegurl')){
+										video.src = sampleHls;
+										video.addEventListener('loadedmetadata', ()=>{ video.play(); }, { once:true });
+										hlsBtn.setAttribute('aria-pressed','true');
+										announce('HLS 켬');
+									} else {
+										announce('이 환경에서 HLS를 재생할 수 없습니다.');
+									}
+								}
+							});
+
+					// 키보드: 스페이스 재생/일시정지, 좌우 5초 탐색 (컨트롤 포커스가 아닐 때)
+					document.addEventListener('keydown',(e)=>{
+						const active = document.activeElement;
+						const controlsContain = document.getElementById('player').contains(active);
+						if(e.code === 'Space' && !controlsContain){ e.preventDefault(); playBtn.click(); }
+						if(!controlsContain){
+							if(e.code === 'ArrowLeft'){ video.currentTime = Math.max(0, video.currentTime - 5); }
+							if(e.code === 'ArrowRight'){ video.currentTime = Math.min(video.duration, video.currentTime + 5); }
+						}
+					});
+
+					// 스크린리더용 간단한 announce 함수
+					const live = document.createElement('div');
+					live.setAttribute('aria-live','polite');
+					live.setAttribute('aria-atomic','true');
+					live.style.position = 'absolute'; live.style.left = '-9999px';
+					document.body.appendChild(live);
+					function announce(text){ live.textContent = text; }
+
+					function updateProgressAria(){
+						const pct = Math.floor((video.currentTime / video.duration) * 100) || 0;
+						progress.setAttribute('aria-valuenow', String(pct));
+						progress.setAttribute('aria-valuetext', `${formatTime(video.currentTime)} 경과`);
+					}
+
+							// --- Custom subtitle overlay renderer ---
+							const subOverlay = document.getElementById('subOverlay');
+									const vttCache = {}; // src -> cues
+									const settingsBtn = document.getElementById('settingsBtn');
+									const settingsPanel = document.getElementById('settingsPanel');
+									const speedRange = document.getElementById('speedRange');
+									const speedLabel = document.getElementById('speedLabel');
+									const crossfadeChk = document.getElementById('crossfadeChk');
+									const stackChk = document.getElementById('stackChk');
+									const fontFamilySelect = document.getElementById('fontFamilySelect');
+									const fontSizeRange = document.getElementById('fontSizeRange');
+									const fontSizeLabel = document.getElementById('fontSizeLabel');
+									const fontColor = document.getElementById('fontColor');
+									const bgRange = document.getElementById('bgRange');
+									const bgLabel = document.getElementById('bgLabel');
+									const bottomRange = document.getElementById('bottomRange');
+									const bottomLabel = document.getElementById('bottomLabel');
+									const presetName = document.getElementById('presetName');
+									const savePresetBtn = document.getElementById('savePresetBtn');
+									const presetSelect = document.getElementById('presetSelect');
+									const loadPresetBtn = document.getElementById('loadPresetBtn');
+									const deletePresetBtn = document.getElementById('deletePresetBtn');
+									const inRange = document.getElementById('inRange');
+									const outRange = document.getElementById('outRange');
+									const inLabel = document.getElementById('inLabel');
+									const outLabel = document.getElementById('outLabel');
+									const easingSelect = document.getElementById('easingSelect');
+									const positionSelect = document.getElementById('positionSelect');
+
+									let maxStack = 3;
+
+									settingsBtn.addEventListener('click', ()=>{
+										const open = settingsPanel.style.display !== 'none';
+										settingsPanel.style.display = open ? 'none' : 'block';
+										settingsPanel.setAttribute('aria-hidden', String(open));
+									});
+
+									speedRange.addEventListener('input', ()=>{
+										const v = Number(speedRange.value);
+										speedLabel.textContent = v + '%';
+										// CSS 변수에 반영
+										const inMs = Math.round(220 * (100 / v));
+										const outMs = Math.round(240 * (100 / v));
+										document.documentElement.style.setProperty('--sub-in-duration', inMs + 'ms');
+										document.documentElement.style.setProperty('--sub-out-duration', outMs + 'ms');
+									});
+
+									// in/out 직접 제어
+									inRange.addEventListener('input', ()=>{
+										const v = Number(inRange.value); inLabel.textContent = v + 'ms';
+										document.documentElement.style.setProperty('--sub-in-duration', v + 'ms');
+									});
+									outRange.addEventListener('input', ()=>{
+										const v = Number(outRange.value); outLabel.textContent = v + 'ms';
+										document.documentElement.style.setProperty('--sub-out-duration', v + 'ms');
+									});
+
+									// easing 선택
+									easingSelect.addEventListener('change', ()=>{
+										document.documentElement.style.setProperty('--sub-easing', easingSelect.value);
+									});
+
+									// position
+									positionSelect.addEventListener('change', ()=>{
+										const v = positionSelect.value;
+										if(v === 'left') { subOverlay.style.alignItems = 'flex-start'; subOverlay.style.paddingLeft = '6%'; subOverlay.style.paddingRight = '6%'; }
+										else if(v === 'right'){ subOverlay.style.alignItems = 'flex-end'; subOverlay.style.paddingLeft = '6%'; subOverlay.style.paddingRight = '6%'; }
+										else { subOverlay.style.alignItems = 'center'; subOverlay.style.paddingLeft = '6%'; subOverlay.style.paddingRight = '6%'; }
+									});
+
+									// Preset management
+									function loadPresets(){ try{ return JSON.parse(localStorage.getItem('subPresets')||'{}'); }catch(e){ return {}; } }
+									function savePresets(p){ localStorage.setItem('subPresets', JSON.stringify(p)); }
+									function refreshPresetList(){ const p = loadPresets(); presetSelect.innerHTML = '<option value="">(없음)</option>'; Object.keys(p).forEach(k=>{ const opt = document.createElement('option'); opt.value = k; opt.textContent = k; presetSelect.appendChild(opt); }); }
+
+									savePresetBtn.addEventListener('click', ()=>{
+										const name = (presetName.value || '').trim(); if(!name) { alert('프리셋 이름을 입력하세요'); return; }
+										const s = loadStyleSettings() || {};
+										const presets = loadPresets(); presets[name] = s; savePresets(presets); refreshPresetList(); announce('프리셋 저장됨');
+									});
+
+									loadPresetBtn.addEventListener('click', ()=>{
+										const sel = presetSelect.value; if(!sel) return; const presets = loadPresets(); const s = presets[sel]; if(s){ applyStyleSettings(s); saveStyleSettings(s); // update UI
+											fontFamilySelect.value = s.fontFamily; fontSizeRange.value = s.fontSize; fontSizeLabel.textContent = s.fontSize + 'px'; fontColor.value = s.color; bgRange.value = s.bgOpacity; bgLabel.textContent = s.bgOpacity + '%'; bottomRange.value = s.bottom; bottomLabel.textContent = s.bottom + '%'; announce('프리셋 불러옴'); }
+									});
+
+									deletePresetBtn.addEventListener('click', ()=>{
+										const sel = presetSelect.value; if(!sel) return; const presets = loadPresets(); delete presets[sel]; savePresets(presets); refreshPresetList(); announce('프리셋 삭제됨');
+									});
+
+									refreshPresetList();
+
+									// export/import and preview
+									const exportPresetBtn = document.getElementById('exportPresetBtn');
+									const importPresetBtn = document.getElementById('importPresetBtn');
+									const importFile = document.getElementById('importFile');
+									const presetPreview = document.getElementById('presetPreview');
+
+									exportPresetBtn.addEventListener('click', ()=>{
+										const sel = presetSelect.value; if(!sel) { alert('내보낼 프리셋을 선택하세요'); return; }
+										const presets = loadPresets(); const data = presets[sel]; if(!data) return; const blob = new Blob([JSON.stringify({ name: sel, data }, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = sel + '.json'; a.click(); URL.revokeObjectURL(url); announce('프리셋 내보내기 시작');
+									});
+
+									importPresetBtn.addEventListener('click', ()=>{ importFile.click(); });
+									importFile.addEventListener('change', (e)=>{
+										const f = e.target.files && e.target.files[0]; if(!f) return; const reader = new FileReader(); reader.onload = () => { try{ const obj = JSON.parse(reader.result); if(obj.name && obj.data){ const presets = loadPresets(); presets[obj.name] = obj.data; savePresets(presets); refreshPresetList(); announce('프리셋 가져오기 완료'); } else { // maybe multiple
+											const parsed = Array.isArray(JSON.parse(reader.result)) ? JSON.parse(reader.result) : JSON.parse(reader.result);
+											if(typeof parsed === 'object'){ const presets = loadPresets(); Object.keys(parsed).forEach(k=> presets[k] = parsed[k]); savePresets(presets); refreshPresetList(); announce('프리셋 병합 완료'); }
+										} }catch(err){ alert('파일 파싱 실패: ' + err.message); } }; reader.readAsText(f); });
+
+									// preview: select 변경 시 저장 없이 적용 (미리보기)
+									presetSelect.addEventListener('change', ()=>{
+										const sel = presetSelect.value; presetPreview.innerHTML = '';
+										if(!sel) return;
+										const presets = loadPresets(); const s = presets[sel];
+										if(!s) return;
+										// apply temporarily
+										applyStyleSettings(s);
+										// 자동 롤백 카운트다운 시작(사용자 설정 값)
+										const dur = Number(document.getElementById('previewDuration').value) || 5;
+										startPreviewCountdown(dur);
+										// show small preview box
+										const box = document.createElement('div'); box.style.background = 'rgba(0,0,0,0.6)'; box.style.color = s.color || '#fff'; box.style.padding = '6px 8px'; box.style.borderRadius = '6px'; box.style.fontSize = (s.fontSize || 20) + 'px'; box.textContent = sel + ' 프리셋 미리보기'; presetPreview.appendChild(box);
+										announce('프리셋 미리보기: ' + sel);
+									});
+
+									// --- 전체 프리셋 내보내기/가져오기/초기화 및 미리보기 자동 롤백 ---
+									const exportAllBtn = document.getElementById('exportAllBtn');
+									const importAllBtn = document.getElementById('importAllBtn');
+									const replaceAllBtn = document.getElementById('replaceAllBtn');
+									const resetBtn = document.getElementById('resetBtn');
+									const autoRollbackChk = document.getElementById('autoRollbackChk');
+									const rollbackTimer = document.getElementById('rollbackTimer');
+
+									exportAllBtn.addEventListener('click', ()=>{
+										const all = loadPresets();
+										const blob = new Blob([JSON.stringify(all, null, 2)], {type:'application/json'});
+										const url = URL.createObjectURL(blob);
+										const a = document.createElement('a'); a.href = url; a.download = 'subpresets_all.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+										announce('모든 프리셋 내보내기');
+									});
+
+									// 병합 가져오기
+									importAllBtn.addEventListener('click', ()=>{
+										importFile.onchange = async (e)=>{
+											const f = e.target.files[0]; if(!f) return;
+											try{
+												const txt = await f.text(); const parsed = JSON.parse(txt);
+												if(typeof parsed !== 'object') throw new Error('잘못된 형식');
+												const existing = loadPresets(); for(const k in parsed) existing[k] = parsed[k]; savePresets(existing); refreshPresetList(); announce('프리셋 병합 가져오기 완료');
+											}catch(err){ alert('가져오기 실패: '+err); }
+											importFile.value = '';
+										};
+										importFile.click();
+									});
+
+									// 전체 대체 가져오기
+									replaceAllBtn.addEventListener('click', ()=>{
+										importFile.onchange = async (e)=>{
+											const f = e.target.files[0]; if(!f) return;
+											try{
+												const txt = await f.text(); const parsed = JSON.parse(txt);
+												if(typeof parsed !== 'object') throw new Error('잘못된 형식');
+												savePresets(parsed); refreshPresetList(); announce('프리셋 모두 대체 완료');
+											}catch(err){ alert('가져오기 실패: '+err); }
+											importFile.value = '';
+										};
+										importFile.click();
+									});
+
+									// 초기화: 사용자 스타일 및 프리셋 초기화
+									// 프리셋만 초기화
+									document.getElementById('resetBtn').addEventListener('click', ()=>{
+										if(!confirm('모든 프리셋을 삭제하시겠습니까?')) return;
+										localStorage.removeItem('subPresets');
+										refreshPresetList();
+										announce('프리셋이 삭제되었습니다');
+									});
+
+									// 스타일만 초기화 버튼 추가
+									const styleResetBtn = document.createElement('button'); styleResetBtn.className='btn'; styleResetBtn.type='button'; styleResetBtn.textContent='스타일 초기화';
+									styleResetBtn.addEventListener('click', ()=>{
+										if(!confirm('저장된 사용자 스타일을 기본값으로 되돌리시겠습니까?')) return;
+										localStorage.removeItem('subStyle');
+										// CSS 변수 제거 및 UI 업데이트
+										document.documentElement.style.removeProperty('--sub-font-size');
+										document.documentElement.style.removeProperty('--sub-color');
+										document.documentElement.style.removeProperty('--sub-bg-opacity');
+										document.documentElement.style.removeProperty('--sub-font-family');
+										document.documentElement.style.removeProperty('--sub-bottom-offset');
+										fontFamilySelect.value = 'system-ui,Segoe UI,Roboto,\'Noto Sans KR\',sans-serif';
+										fontSizeRange.value = 20; fontSizeLabel.textContent = '20px';
+										fontColor.value = '#ffffff';
+										bgRange.value = 60; bgLabel.textContent = '60%';
+										bottomRange.value = 6; bottomLabel.textContent = '6%';
+										announce('사용자 스타일이 기본값으로 복원되었습니다');
+									});
+
+									// 스타일 초기화 버튼을 settings panel의 하단에 삽입
+									settingsPanel.appendChild(styleResetBtn);
+
+									// 미리보기 자동 롤백
+									let previewTimerId = null; let previewRemaining = 0;
+									const previewDuration = document.getElementById('previewDuration');
+									document.getElementById('previewDurLabel').textContent = previewDuration.value + 's';
+									previewDuration.addEventListener('input', ()=>{ document.getElementById('previewDurLabel').textContent = previewDuration.value + 's'; });
+
+									function startPreviewCountdown(seconds){
+										if(!autoRollbackChk.checked) return;
+										clearPreviewCountdown(); previewRemaining = seconds; rollbackTimer.textContent = previewRemaining + 's';
+										previewTimerId = setInterval(()=>{
+											previewRemaining -= 1; if(previewRemaining <= 0){ clearPreviewCountdown(); rollbackTimer.textContent = ''; const saved = loadStyleSettings(); if(saved) applyStyleSettings(saved); else loadDefaultStyle(); announce('미리보기 롤백 완료'); }
+											else rollbackTimer.textContent = previewRemaining + 's';
+										}, 1000);
+									}
+
+									function loadDefaultStyle(){
+										const defaults = { fontFamily: 'system-ui,Segoe UI,Roboto,\'Noto Sans KR\',sans-serif', fontSize: 20, color: '#ffffff', bgOpacity: 60, bottom: 6 };
+										applyStyleSettings(defaults);
+										// update UI controls to defaults
+										fontFamilySelect.value = defaults.fontFamily;
+										fontSizeRange.value = defaults.fontSize; fontSizeLabel.textContent = defaults.fontSize + 'px';
+										fontColor.value = defaults.color;
+										bgRange.value = defaults.bgOpacity; bgLabel.textContent = defaults.bgOpacity + '%';
+										bottomRange.value = defaults.bottom; bottomLabel.textContent = defaults.bottom + '%';
+									}
+									function clearPreviewCountdown(){ if(previewTimerId) clearInterval(previewTimerId); previewTimerId = null; previewRemaining = 0; rollbackTimer.textContent = ''; }
+
+									// Keyboard help toggle (toggle with '?')
+									const kbdHelp = document.getElementById('kbdHelp');
+									const closeKbdHelp = document.getElementById('closeKbdHelp');
+									document.addEventListener('keydown', (e)=>{
+										if(e.key === '?'){
+											e.preventDefault();
+											const shown = kbdHelp.style.display !== 'none';
+											kbdHelp.style.display = shown ? 'none' : 'block';
+											if(!shown) { kbdHelp.setAttribute('aria-expanded','true'); kbdHelp.querySelector('button')?.focus(); }
+											else { kbdHelp.setAttribute('aria-expanded','false'); }
+										}
+									});
+
+									closeKbdHelp.addEventListener('click', ()=>{ kbdHelp.style.display = 'none'; kbdHelp.setAttribute('aria-expanded','false'); });
+
+
+											// 스타일 컨트롤 적용/저장
+											function applyStyleSettings(s){
+												document.documentElement.style.setProperty('--sub-font-size', s.fontSize + 'px');
+												document.documentElement.style.setProperty('--sub-color', s.color);
+												document.documentElement.style.setProperty('--sub-bg-opacity', (s.bgOpacity/100).toString());
+												document.documentElement.style.setProperty('--sub-font-family', s.fontFamily);
+												document.documentElement.style.setProperty('--sub-bottom-offset', s.bottom + '%');
+											}
+
+											function saveStyleSettings(s){ localStorage.setItem('subStyle', JSON.stringify(s)); }
+											function loadStyleSettings(){ try{ return JSON.parse(localStorage.getItem('subStyle')) || null; }catch(e){ return null; } }
+
+											// 초기값 적용
+											const initStyle = loadStyleSettings() || { fontFamily: fontFamilySelect.value, fontSize: Number(fontSizeRange.value), color: fontColor.value, bgOpacity: Number(bgRange.value), bottom: Number(bottomRange.value) };
+											applyStyleSettings(initStyle);
+											fontSizeLabel.textContent = initStyle.fontSize + 'px';
+											bgLabel.textContent = initStyle.bgOpacity + '%';
+											bottomLabel.textContent = initStyle.bottom + '%';
+
+											// init easing and in/out labels
+											inLabel.textContent = inRange.value + 'ms';
+											outLabel.textContent = outRange.value + 'ms';
+											// init easing variable
+											document.documentElement.style.setProperty('--sub-easing', easingSelect.value);
+											// init position
+											positionSelect.value = 'center';
+
+											// 이벤트 바인딩
+											fontFamilySelect.addEventListener('change', ()=>{ const s = loadStyleSettings() || {}; s.fontFamily = fontFamilySelect.value; applyStyleSettings(s); saveStyleSettings(s); });
+											fontSizeRange.addEventListener('input', ()=>{ const v = Number(fontSizeRange.value); fontSizeLabel.textContent = v + 'px'; const s = loadStyleSettings() || {}; s.fontSize = v; applyStyleSettings(s); saveStyleSettings(s); });
+											fontColor.addEventListener('input', ()=>{ const s = loadStyleSettings() || {}; s.color = fontColor.value; applyStyleSettings(s); saveStyleSettings(s); });
+											bgRange.addEventListener('input', ()=>{ const v = Number(bgRange.value); bgLabel.textContent = v + '%'; const s = loadStyleSettings() || {}; s.bgOpacity = v; applyStyleSettings(s); saveStyleSettings(s); });
+											bottomRange.addEventListener('input', ()=>{ const v = Number(bottomRange.value); bottomLabel.textContent = v + '%'; const s = loadStyleSettings() || {}; s.bottom = v; applyStyleSettings(s); saveStyleSettings(s); });
+
+
+									if(crossfadeChk) crossfadeChk.addEventListener('change', ()=>{
+										// crossfade: 새 cue가 들어올 때 기존 cue를 동시에 fade out하지 않고 살짝 겹치게 함
+									});
+
+									if(stackChk) stackChk.addEventListener('change', ()=>{
+										// 스택이 켜지면 최대 보여줄 줄 수 설정
+										if(stackChk.checked) maxStack = 3; else maxStack = 1;
+									});
+
+									// Inline subtitles (embedded) — 파일 없이도 동작하도록 미리 정의
+									const inlineVtts = {
+										'subs_ko.vtt': [
+											{ start: 0, end: 4, text: '안녕하세요, 이 비디오는 HTML5 플레이어 데모입니다.' },
+											{ start: 4, end: 8, text: '여기서는 자막과 HLS 재생을 테스트합니다.' },
+											{ start: 8, end: 12, text: '화면의 컨트롤로 재생, 일시정지, 볼륨, 전체화면을 사용할 수 있습니다.' }
+										],
+										'subs_en.vtt': [
+											{ start: 0, end: 4, text: 'Hello — this video is a demo of the HTML5 player.' },
+											{ start: 4, end: 8, text: 'Here we test subtitles and HLS playback.' },
+											{ start: 8, end: 12, text: 'Use the on-screen controls to play, pause, change volume, and go fullscreen.' }
+										]
+									};
+
+									async function loadVtt(src){
+										if(!src) return [];
+										if(vttCache[src]) return vttCache[src];
+										// 먼저 인라인 데이터 확인
+										if(inlineVtts[src]){ vttCache[src] = inlineVtts[src]; return vttCache[src]; }
+										try{
+											const res = await fetch(src);
+											const text = await res.text();
+											const cues = parseVtt(text);
+											vttCache[src] = cues;
+											return cues;
+										}catch(e){ console.warn('VTT load failed', src, e); return []; }
+									}
+
+							// 아주 간단한 VTT 파서: cue 시작/종료와 텍스트만 추출
+							function parseVtt(text){
+								const lines = text.replace(/\r/g,'').split('\n');
+								const cues = [];
+								let i=0;
+								while(i<lines.length){
+									const line = lines[i].trim();
+									if(!line){ i++; continue; }
+															// 타임라인 라인 찾기 (간단한 파싱)
+															let timeMatch = null;
+															if(line.indexOf('-->') !== -1){
+																const parts = line.split('-->');
+																const startStr = parts[0].trim();
+																const endStr = parts[1].trim();
+																timeMatch = [null, startStr, endStr];
+															}
+															if(timeMatch){
+																const start = parseTime(timeMatch[1]);
+																const end = parseTime(timeMatch[2]);
+										i++;
+										let textLines = [];
+										while(i<lines.length && lines[i].trim()) { textLines.push(lines[i]); i++; }
+										cues.push({ start, end, text: textLines.join('\n') });
+									} else { i++; }
+								}
+								return cues;
+							}
+
+							function parseTime(s){ const parts = s.split(':'); const h=Number(parts[0]), m=Number(parts[1]); const sec = Number(parts[2]); return h*3600 + m*60 + sec; }
+
+							// 현재 활성 트랙의 src를 확인하고 overlay에 렌더
+							async function updateSubtitleOverlay(){
+								// 선택된 subs select 우선
+								const sel = subs.value;
+								let src = null;
+								if(sel === 'ko') src = 'subs_ko.vtt';
+								else if(sel === 'en') src = 'subs_en.vtt';
+								else {
+									// fallback: first showing track
+									const t = Array.from(video.querySelectorAll('track')).find(tr=> tr.mode === 'showing');
+									if(t && t.src) src = t.src;
+								}
+								if(!src){ subOverlay.innerHTML = ''; return; }
+								const cues = await loadVtt(src);
+								const t = video.currentTime;
+								const active = cues.filter(c => t >= c.start && t <= c.end);
+										// 현재 표시된 cue들과 비교해 추가/제거 처리 (부드러운 애니메이션)
+										const existing = Array.from(subOverlay.children);
+										const activeText = active.map(a=>a.text);
+										// 제거: existing 중 active에 없는 것은 out 애니메이션 적용
+										existing.forEach(el=>{
+											if(!activeText.includes(el.textContent)){
+												if(!el.classList.contains('out')){ el.classList.remove('in'); el.classList.add('out'); setTimeout(()=> el.remove(), 260); }
+											}
+										});
+												// 추가: active 중 existing에 없는 것은 생성해 in 애니메이션 적용
+												// 스택 제한 로직
+												const toShow = active.slice(0, maxStack);
+												toShow.forEach(a=>{
+													if(!existing.find(e=> e.textContent === a.text)){
+														const d = document.createElement('div'); d.className='cue in'; d.textContent = a.text; subOverlay.appendChild(d);
+													}
+												});
+												// crossfade 처리: 만약 crossfade 활성이라면 기존 요소를 바로 out으로 하지 않고 자연스럽게 유지
+												try{
+													if(crossfadeChk && crossfadeChk.checked){
+														// overlap will naturally occur because we don't immediately remove all existing cues
+													}
+												}catch(e){}
+												// 스택 체크가 있다면 maxStack 반영
+												try{ if(stackChk && !stackChk.checked) { /* if unchecked, limit to 1 */ } }catch(e){}
+							}
+
+							// video의 timeupdate에서 오버레이 갱신
+							video.addEventListener('timeupdate', ()=>{ updateSubtitleOverlay(); updateProgressAria(); });
+
+							// subs select 변경 시 트랙 동기화 및 오버레이 즉시 업데이트
+							subs.addEventListener('change', ()=>{ const v=subs.value; if(v==='off'){ Array.from(video.querySelectorAll('track')).forEach(t=> t.mode='hidden'); } else if(v==='ko'){ const t=video.querySelector('track[srclang="ko"]'); if(t) t.mode='showing'; } else if(v==='en'){ const t=video.querySelector('track[srclang="en"]'); if(t) t.mode='showing'; } updateSubtitleOverlay(); });
+
+
+			// 초기 상태
+			video.addEventListener('loadedmetadata', ()=>{ timeEl.textContent = `${formatTime(0)} / ${formatTime(video.duration)}`; updateProgressAria(); });
+
+			// 업데이트 시 aria 반영
+			video.addEventListener('timeupdate', ()=>{ updateProgressAria(); });
+
+		</script>
+	</body>
+</html>
+

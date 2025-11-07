@@ -1,0 +1,13 @@
+{
+  "name": "html5-video-player-sample",
+  "version": "1.0.0",
+  "description": "HTML5 video player sample with subtitles, HLS, accessibility and styling presets.",
+  "scripts": {
+    "start": "python -m http.server 8000 --bind 127.0.0.1"
+  },
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14"
+  }
+}

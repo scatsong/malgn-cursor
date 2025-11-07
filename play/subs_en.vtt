@@ -1,0 +1,10 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:04.000
+Hello — this video is a demo of the HTML5 player.
+
+00:00:04.000 --> 00:00:08.000
+Here we test subtitles and HLS playback.
+
+00:00:08.000 --> 00:00:12.000
+Use the on-screen controls to play, pause, change volume, and go fullscreen.
