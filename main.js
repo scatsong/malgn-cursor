@@ -63,7 +63,6 @@ const KEY_BINDINGS = {
 
 const canvas = document.querySelector("#playfield");
 const context = canvas.getContext("2d");
-context.scale(BLOCK_SIZE, BLOCK_SIZE);
 
 const nextCanvas = document.querySelector("#nextPiece");
 const nextContext = nextCanvas.getContext("2d");
@@ -311,11 +310,9 @@ function rotateMatrix(matrix) {
   return rotated;
 }
 
-function drawGrid(grid, ctx, scale = BLOCK_SIZE) {
+function drawGrid(grid, ctx) {
   const width = COLS;
   const height = ROWS;
-  ctx.save();
-  ctx.scale(scale / BLOCK_SIZE, scale / BLOCK_SIZE);
   ctx.clearRect(0, 0, width * BLOCK_SIZE, height * BLOCK_SIZE);
   ctx.fillStyle = "#f3f4f6";
   ctx.fillRect(0, 0, width * BLOCK_SIZE, height * BLOCK_SIZE);
@@ -325,7 +322,6 @@ function drawGrid(grid, ctx, scale = BLOCK_SIZE) {
       drawBlock(ctx, x, y, COLORS[value]);
     });
   });
-  ctx.restore();
 }
 
 function drawActivePiece(ctx, piece, ghost = false) {
